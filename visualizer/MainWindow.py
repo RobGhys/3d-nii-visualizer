@@ -142,7 +142,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
             brain_group_layout.addWidget(slice_widget, current_label_row, 1, 1, 2)
             slice_widget.valueChanged.connect(func)
             slice_widget.setRange(self.brain.extent[extent_index - 1], self.brain.extent[extent_index])
-            slice_widget.setValue(self.brain.extent[extent_index] / 2)
+            slice_widget.setValue(round(self.brain.extent[extent_index] / 2))
             current_label_row += 1
             extent_index -= 2
 

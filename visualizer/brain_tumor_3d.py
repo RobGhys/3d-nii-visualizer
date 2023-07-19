@@ -26,7 +26,6 @@ def verify_type(file):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Reads Nii.gz Files and renders them in 3D.')
     parser.add_argument('-i', type=lambda fn: verify_type(fn), help='an mri scan (nii.gz)')
-    parser.add_argument('-m', type=lambda fn: verify_type(fn), help='the segmentation mask (nii.gz)')
     args = parser.parse_args()
 
     redirect_vtk_messages()
@@ -37,6 +36,5 @@ if __name__ == "__main__":
     #     app.setStyleSheet(read_css)
 
     app.BRAIN_FILE = args.i
-    app.MASK_FILE = args.m
     window = MainWindow(app)
     sys.exit(app.exec_())

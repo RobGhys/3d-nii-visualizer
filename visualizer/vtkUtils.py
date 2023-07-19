@@ -41,20 +41,6 @@ def create_brain_extractor(brain):
     # brain_extractor.SetValue(0, sum(brain.scalar_range)/2)
     return brain_extractor
 
-
-def create_mask_extractor(mask):
-    """
-    Given the output from mask (vtkNIFTIImageReader) extract it into 3D using
-    vtkDiscreteMarchingCubes algorithm (https://www.vtk.org/doc/release/5.0/html/a01331.html).
-    This algorithm is specialized for reading segmented volume labels.
-    :param mask: a vtkNIFTIImageReader volume containing the mask
-    :return: the extracted volume from vtkDiscreteMarchingCubes
-    """
-    mask_extractor = vtk.vtkDiscreteMarchingCubes()
-    mask_extractor.SetInputConnection(mask.reader.GetOutputPort())
-    return mask_extractor
-
-
 def create_polygon_reducer(extractor):
     """
     Reduces the number of polygons (triangles) in the volume. This is used to speed up rendering.
@@ -119,30 +105,6 @@ def create_actor(mapper, prop):
     actor.SetProperty(prop)
     return actor
 
-
-def create_mask_table():
-    m_mask_opacity = 1
-    brain_lut = vtk.vtkLookupTable()
-    brain_lut.SetRange(0, 4)
-    brain_lut.SetRampToLinear()
-    brain_lut.SetValueRange(0, 1)
-    brain_lut.SetHueRange(0, 0)
-    brain_lut.SetSaturationRange(0, 0)
-
-    brain_lut.SetNumberOfTableValues(10)
-    brain_lut.SetTableRange(0, 9)
-    brain_lut.SetTableValue(0, 0, 0, 0, 0)
-    brain_lut.SetTableValue(1, 1, 0, 0, m_mask_opacity)  # RED
-    brain_lut.SetTableValue(2, 0, 1, 0, m_mask_opacity)  # GREEN
-    brain_lut.SetTableValue(3, 1, 1, 0, m_mask_opacity)  # YELLOW
-    brain_lut.SetTableValue(4, 0, 0, 1, m_mask_opacity)  # BLUE
-    brain_lut.SetTableValue(5, 1, 0, 1, m_mask_opacity)  # MAGENTA
-    brain_lut.SetTableValue(6, 0, 1, 1, m_mask_opacity)  # CYAN
-    brain_lut.SetTableValue(7, 1, 0.5, 0.5, m_mask_opacity)  # RED_2
-    brain_lut.SetTableValue(8, 0.5, 1, 0.5, m_mask_opacity)  # GREEN_2
-    brain_lut.SetTableValue(9, 0.5, 0.5, 1, m_mask_opacity)  # BLUE_2
-    brain_lut.Build()
-    return brain_lut
 
 
 def create_table():
@@ -254,19 +216,3 @@ def setup_brain(renderer, file):
     add_surface_rendering(brain, 0, sum(scalar_range)/2)  # render index, default extractor value
     renderer.AddActor(brain.labels[0].actor)
     return brain
-
-
-def setup_mask(renderer, file):
-    mask = NiiObject()
-    mask.file = file
-    mask.reader = read_volume(mask.file)
-    mask.extent = mask.reader.GetDataExtent()
-    n_labels = int(mask.reader.GetOutput().GetScalarRange()[1])
-    n_labels = n_labels if n_labels <= 10 else 10
-
-    for label_idx in range(n_labels):
-        mask.labels.append(NiiLabel(MASK_COLORS[label_idx], MASK_OPACITY, MASK_SMOOTHNESS))
-        mask.labels[label_idx].extractor = create_mask_extractor(mask)
-        add_surface_rendering(mask, label_idx, label_idx + 1)
-        renderer.AddActor(mask.labels[label_idx].actor)
-    return mask

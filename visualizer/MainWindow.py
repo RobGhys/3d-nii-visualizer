@@ -16,9 +16,7 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
 
         # base setup
         self.renderer, self.frame, self.vtk_widget, self.interactor, self.render_window = self.setup()
-        self.brain, self.mask = setup_brain(self.renderer, self.app.BRAIN_FILE), setup_mask(self.renderer,
-                                                                                            self.app.MASK_FILE)
-
+        self.brain = setup_brain(self.renderer, self.app.BRAIN_FILE)
         # setup brain projection and slicer
         self.brain_image_prop = setup_projection(self.brain, self.renderer)
         self.brain_slicer_props = setup_slicer(self.renderer, self.brain)  # causing issues with rotation
@@ -33,18 +31,12 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         self.brain_projection_cb = self.add_brain_projection()
         self.brain_slicer_cb = self.add_brain_slicer()
 
-        # mask pickers
-        self.mask_opacity_sp = self.create_new_picker(1.0, 0.0, 0.1, MASK_OPACITY, self.mask_opacity_vc)
-        self.mask_smoothness_sp = self.create_new_picker(1000, 100, 100, MASK_SMOOTHNESS, self.mask_smoothness_vc)
-        self.mask_label_cbs = []
-
         # create grid for all widgets
         self.grid = QtWidgets.QGridLayout()
 
         # add each widget
         self.add_vtk_window_widget()
         self.add_brain_settings_widget()
-        self.add_mask_settings_widget()
         self.add_views_widget()
 
         #  set layout and show
@@ -98,11 +90,9 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
 
     def add_vtk_window_widget(self):
         base_brain_file = os.path.basename(self.app.BRAIN_FILE)
-        base_mask_file = os.path.basename(self.app.MASK_FILE)
-        object_title = "Brain: {0} (min: {1:.2f}, max: {2:.2f})        Mask: {3}".format(base_brain_file,
+        object_title = "Brain: {0} (min: {1:.2f}, max: {2:.2f})       ".format(base_brain_file,
                                                                                          self.brain.scalar_range[0],
-                                                                                         self.brain.scalar_range[1],
-                                                                                         base_mask_file)
+                                                                                         self.brain.scalar_range[1])
         object_group_box = QtWidgets.QGroupBox(object_title)
         object_layout = QtWidgets.QVBoxLayout()
         object_layout.addWidget(self.vtk_widget)
@@ -167,40 +157,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
                                                     self.brain.extent[4], self.brain.extent[5])
         self.render_window.Render()
 
-    def add_mask_settings_widget(self):
-        mask_settings_group_box = QtWidgets.QGroupBox("Mask Settings")
-        mask_settings_layout = QtWidgets.QGridLayout()
-        mask_settings_layout.addWidget(QtWidgets.QLabel("Mask Opacity"), 0, 0)
-        mask_settings_layout.addWidget(QtWidgets.QLabel("Mask Smoothness"), 1, 0)
-        mask_settings_layout.addWidget(self.mask_opacity_sp, 0, 1)
-        mask_settings_layout.addWidget(self.mask_smoothness_sp, 1, 1)
-        mask_multi_color_radio = QtWidgets.QRadioButton("Multi Color")
-        mask_multi_color_radio.setChecked(True)
-        mask_multi_color_radio.clicked.connect(self.mask_multi_color_radio_checked)
-        mask_single_color_radio = QtWidgets.QRadioButton("Single Color")
-        mask_single_color_radio.clicked.connect(self.mask_single_color_radio_checked)
-        mask_settings_layout.addWidget(mask_multi_color_radio, 2, 0)
-        mask_settings_layout.addWidget(mask_single_color_radio, 2, 1)
-        mask_settings_layout.addWidget(self.create_new_separator(), 3, 0, 1, 2)
-
-        self.mask_label_cbs = []
-        c_col, c_row = 0, 4  # c_row must always be (+1) of last row
-        for i in range(1, 11):
-            self.mask_label_cbs.append(QtWidgets.QCheckBox("Label {}".format(i)))
-            mask_settings_layout.addWidget(self.mask_label_cbs[i - 1], c_row, c_col)
-            c_row = c_row + 1 if c_col == 1 else c_row
-            c_col = 0 if c_col == 1 else 1
-
-        mask_settings_group_box.setLayout(mask_settings_layout)
-        self.grid.addWidget(mask_settings_group_box, 1, 0, 2, 2)
-
-        for i, cb in enumerate(self.mask_label_cbs):
-            if i < len(self.mask.labels) and self.mask.labels[i].actor:
-                cb.setChecked(True)
-                cb.clicked.connect(self.mask_label_checked)
-            else:
-                cb.setDisabled(True)
-
     def add_views_widget(self):
         axial_view = QtWidgets.QPushButton("Axial")
         coronal_view = QtWidgets.QPushButton("Coronal")
@@ -235,25 +191,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         projection_cb.clicked.connect(self.brain_projection_vc)
         return projection_cb
 
-    def mask_label_checked(self):
-        for i, cb in enumerate(self.mask_label_cbs):
-            if cb.isChecked():
-                self.mask.labels[i].property.SetOpacity(self.mask_opacity_sp.value())
-            elif cb.isEnabled():  # labels without data are disabled
-                self.mask.labels[i].property.SetOpacity(0)
-        self.render_window.Render()
-
-    def mask_single_color_radio_checked(self):
-        for label in self.mask.labels:
-            if label.property:
-                label.property.SetColor(MASK_COLORS[0])
-        self.render_window.Render()
-
-    def mask_multi_color_radio_checked(self):
-        for label in self.mask.labels:
-            if label.property:
-                label.property.SetColor(label.color)
-        self.render_window.Render()
 
     def brain_projection_vc(self):
         projection_checked = self.brain_projection_cb.isChecked()
@@ -287,21 +224,6 @@ class MainWindow(QtWidgets.QMainWindow, QtWidgets.QApplication):
         self.process_changes()
         smoothness = self.brain_smoothness_sp.value()
         self.brain.labels[0].smoother.SetNumberOfIterations(smoothness)
-        self.render_window.Render()
-
-    def mask_opacity_vc(self):
-        opacity = round(self.mask_opacity_sp.value(), 2)
-        for i, label in enumerate(self.mask.labels):
-            if label.property and self.mask_label_cbs[i].isChecked():
-                label.property.SetOpacity(opacity)
-        self.render_window.Render()
-
-    def mask_smoothness_vc(self):
-        self.process_changes()
-        smoothness = self.mask_smoothness_sp.value()
-        for label in self.mask.labels:
-            if label.smoother:
-                label.smoother.SetNumberOfIterations(smoothness)
         self.render_window.Render()
 
     def set_axial_view(self):
